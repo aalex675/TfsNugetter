@@ -26,7 +26,15 @@ namespace TfsBuild.NuGetter.Activities.Tests
             Assert.AreEqual("1.2.3.9876", versionPattern);
         }
 
+        [TestMethod]
+        public void ConvertVersionPatternTests_MajorVersionShouldAllowTokens()
+        {
+            var convertVersionPattern = new ConvertVersionPattern();
 
+            var versionPattern = convertVersionPattern.DoConvertVersion("YYYY.MM.DD.0", "NuGet Update Test_20111221.4", 0);
+
+            Assert.AreEqual(DateTime.Now.ToString("yyyy.M.dd.0"), versionPattern);
+        }
 
         [TestMethod]
         public void ConvertVersionPatternTests_WhenConvertingYYYYNoSemanticShouldReturnFullYear()

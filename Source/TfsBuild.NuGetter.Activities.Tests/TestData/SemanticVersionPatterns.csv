@@ -6,4 +6,4 @@ VersionPattern,ExpectedResult
 1.2.3-beta,1.2.3-beta
 1.2.123-beta,1.2.123-beta
 1.2.123-,1.2.123-
-1.yy.yyyy-prerelease,1.13.2013-prerelease
+1.yy.yyyy-prerelease,1.15.2015-prerelease

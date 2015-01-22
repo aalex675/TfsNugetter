@@ -5,6 +5,7 @@ using System.Text;
 using System.Activities;
 using System.Text.RegularExpressions;
 using Microsoft.TeamFoundation.Build.Client;
+using System.Collections.Generic;
 
 // ==============================================================================================
 // http://NuGetter.codeplex.com/
@@ -84,169 +85,96 @@ namespace TfsBuild.NuGetter.Activities
             var initialMatch = regex.IsMatch(versionPattern);
 
             if (initialMatch) return versionPattern;
-            
-            regex = new Regex(
-                    @"^(\d+)?(\.((\d{1,5})|([a-zA-Z]{1,4})))?(\.((\d{1,5})|([a-zA-Z]{1,9})))?(\.((\d)+|(\d+[a-zA-Z0-9+-]*)|([a-zA-Z]{1,9})|([a-zA-Z]{1,9})([-|+][a-zA-Z0-9+-]*)|(\*)))?$");
-
-                    //@"^(\d+)?(\.((\d{1,5})|([a-zA-Z]{1,4})))?(\.((\d{1,5})|([a-zA-Z]{1,4})))?(\.((\d{1,5})|(\d{1,5}[a-zA-Z0-9+-]*)|([a-zA-Z]{1,4})|([a-zA-Z]{1,9})([-|+])([a-zA-Z0-9+-]*)))$");
-                    //@"^(\d+)?(\.((\d{1,5})|(\d{1,5}[a-zA-Z]{1,4})))?(\.((\d{1,5})|(\d{1,5}[a-zA-Z]{1,4})))?(\.((\d{1,5})|(\d{1,5}[a-zA-Z0-9+-]*)|([a-zA-Z]{1,4})|([a-zA-Z]{1,4})([-|+])([a-zA-Z0-9+-]*)))$");
-
-            var match = regex.Match(versionPattern);
-
-            // Was the value passed in actually an version pattern)
-            if (match.Success)
+            if (string.IsNullOrEmpty(buildNumber))
             {
-                // these are the group numbers of any interest
-                var matchList = new[] {4, 5, 8, 9, 12, 13, 14, 15};
+                throw new ArgumentException("BuildNumber must contain the build value: use $(Rev:.r) at the end of the Build Number Format");
+            }
 
-                version.Append(match.Groups[1].Value);
+            string buildNumberString = GetBuildFromBuildNumber(buildNumber, buildNumberPrefix);
+            Dictionary<string, string> replacementValues = new Dictionary<string, string>()
+            {
+                { "YYYYMMDD", DateTime.Now.ToString("yyyyMMdd") },
+                { "YYMMDD", DateTime.Now.ToString("yyMMdd") },
+                { "YYYYMMDDB", DateTime.Now.ToString("yyyyMMdd") + buildNumberString },
+                { "YYMMDDB", DateTime.Now.ToString("yyMMdd") + buildNumberString },
+                { "YYYYMM", DateTime.Now.ToString("yyyyMM") },
+                { "YYMM", DateTime.Now.ToString("yyMM") },
+                { "YYYYMMB", DateTime.Now.ToString("yyyyMM") + buildNumberString },
+                { "YYMMB", DateTime.Now.ToString("yyMM") + buildNumberString },
+                { "JB", DateTime.Now.ToString("yy") + string.Format("{0:000}", DateTime.Now.DayOfYear) + buildNumberString },
+                { "J", DateTime.Now.ToString("yy") + string.Format("{0:000}", DateTime.Now.DayOfYear) },
+                { "YYYY", DateTime.Now.ToString("yyyy") },
+                { "YY", DateTime.Now.ToString("yy") },
+                { "MM", DateTime.Now.Month.ToString() },
+                { "M", DateTime.Now.Month.ToString() },
+                { "DD", DateTime.Now.Day.ToString() },
+                { "D", DateTime.Now.Day.ToString() },
+                { "B", GetBuildFromBuildNumber(buildNumber, buildNumberPrefix) },
+            };
 
-                foreach (var i in matchList)
+            string output = string.Empty;
+            string versionString = versionPattern;
+            char[] seperators = { '.', '-', ' ' };
+            for (int i = 0; i < versionString.Length; i++)
+            {
+                int endIndex = versionString.IndexOfAny(seperators, i);
+                if (endIndex != -1)
                 {
-                    var pattern = match.Groups[i].Value;
+                    string current = versionString.Substring(i, endIndex - i);
 
-                    if (!string.IsNullOrWhiteSpace(pattern))
+                    foreach (var replacementKvp in replacementValues)
                     {
-                        var conversionItemUpper = pattern.ToUpper();
-
-                        version.Append(".");
-
-                        switch (conversionItemUpper)
+                        if (current.Equals(replacementKvp.Key, StringComparison.InvariantCultureIgnoreCase))
                         {
-                            case "YYYYMMDD":
-                                version.Append(DateTime.Now.ToString("yyyy"));
-                                version.Append(string.Format("{0:00}", DateTime.Now.Month));
-                                version.Append(string.Format("{0:00}", DateTime.Now.Day));
-                                break;
-
-                            case "YYMMDD":
-                                version.Append(DateTime.Now.ToString("yy"));
-                                version.Append(string.Format("{0:00}", DateTime.Now.Month));
-                                version.Append(string.Format("{0:00}", DateTime.Now.Day));
-                                break;
-
-                            case "YYYYMMDDB":
-                                version.Append(DateTime.Now.ToString("yyyy"));
-                                version.Append(string.Format("{0:00}", DateTime.Now.Month));
-                                version.Append(string.Format("{0:00}", DateTime.Now.Day));
-                                version.Append(GetBuildFromBuildNumber(buildNumber, buildNumberPrefix));
-                                break;
-
-                            case "YYMMDDB":
-                                version.Append(DateTime.Now.ToString("yy"));
-                                version.Append(string.Format("{0:00}", DateTime.Now.Month));
-                                version.Append(string.Format("{0:00}", DateTime.Now.Day));
-                                version.Append(GetBuildFromBuildNumber(buildNumber, buildNumberPrefix));
-                                break;
-
-                            case "YYYYMM":
-                                version.Append(DateTime.Now.ToString("yyyy"));
-                                version.Append(string.Format("{0:00}", DateTime.Now.Month));
-                                break;
-
-                            case "YYMM":
-                                version.Append(DateTime.Now.ToString("yy"));
-                                version.Append(string.Format("{0:00}", DateTime.Now.Month));
-                                break;
-
-                            case "YYYYMMB":
-                                version.Append(DateTime.Now.ToString("yyyy"));
-                                version.Append(string.Format("{0:00}", DateTime.Now.Month));
-                                version.Append(GetBuildFromBuildNumber(buildNumber, buildNumberPrefix));
-                                break;
-
-                            case "YYMMB":
-                                version.Append(DateTime.Now.ToString("yy"));
-                                version.Append(string.Format("{0:00}", DateTime.Now.Month));
-                                version.Append(GetBuildFromBuildNumber(buildNumber, buildNumberPrefix));
-                                break;
-
-                            case "JB":
-                                version.Append(DateTime.Now.ToString("yy"));
-                                version.Append(string.Format("{0:000}", DateTime.Now.DayOfYear));
-                                version.Append(GetBuildFromBuildNumber(buildNumber, buildNumberPrefix));
-                                break;
-
-                            case "YYYY":
-                                version.Append(DateTime.Now.ToString("yyyy"));
-                                break;
-
-                            case "YY":
-                                version.Append(DateTime.Now.ToString("yy"));
-                                break;
-
-                            case "M":
-                            case "MM":
-                                version.Append(DateTime.Now.Month);
-                                break;
-
-                            case "D":
-                            case "DD":
-                                version.Append(DateTime.Now.Day);
-                                break;
-
-                            case "J":
-                                version.Append(DateTime.Now.ToString("yy"));
-                                version.Append(string.Format("{0:000}", DateTime.Now.DayOfYear));
-                                break;
-
-                            case "B":
-                                if (string.IsNullOrEmpty(buildNumber))
-                                {
-                                    throw new ArgumentException("BuildNumber must contain the build value: use $(Rev:.r) at the end of the Build Number Format");
-                                }
-
-                                int buildNumberValue;
-
-                                // Attempt to parse - this should probably fails since it will only work if the only thing passed 
-                                //  in through the BuildNumber is a number.  This is typically something like: "Buildname.year.month.buildNumber"
-                                var isNumber = int.TryParse(buildNumber, out buildNumberValue);
-
-                                if (!isNumber)
-                                {
-                                    var buildNumberArray = buildNumber.Split('.');
-
-                                    const string exceptionString = "'Build Number Format' in the build definition must end with $(Rev:.r) to use the build number in the version pattern.  Suggested pattern: $(BuildDefinitionName)_$(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)";
-
-                                    if (buildNumberArray.Length < 2)
-                                    {
-                                        throw new ArgumentException(exceptionString);
-                                    }
-
-                                    isNumber = int.TryParse(buildNumberArray[buildNumberArray.Length - 1], out buildNumberValue);
-
-                                    if (isNumber == false)
-                                    {
-                                        throw new ArgumentException(exceptionString);
-                                    }
-                                }
-
-                                buildNumberValue = AddBuildNumberPrefixIfNecessary(buildNumberPrefix, buildNumberValue);
-                                version.Append(buildNumberValue);
-
-                                break;
-
-                            default:
-                                version.Append(pattern);
-                                break;
-                        }
-
-                        // Add the 2 other components
-                        if (i == 15)
-                        {
-                            for (var j = 16; j <= 17; j++)
-                            {
-                                if (!string.IsNullOrWhiteSpace(match.Groups[j].Value))
-                                {
-                                    version.Append(match.Groups[j].Value);
-                                }
-                            }
+                            current = ReplaceCaseInsensitive(current, replacementKvp.Key, replacementKvp.Value);
                         }
                     }
+
+                    output += current;
+                    output += versionString[endIndex];
+                    i = endIndex;
+                }
+                else
+                {
+                    string current = versionString.Substring(i);
+
+                    foreach (var replacementKvp in replacementValues)
+                    {
+                        if (current.Equals(replacementKvp.Key, StringComparison.InvariantCultureIgnoreCase))
+                        {
+                            current = ReplaceCaseInsensitive(current, replacementKvp.Key, replacementKvp.Value);
+                        }
+                    }
+
+                    output += current;
+                    break;
                 }
             }
 
-            return version.ToString();
+            return output;
+        }
+
+        private string ReplaceCaseInsensitive(string str, string oldValue, string newValue)
+        {
+            int prevPos = 0;
+            string retval = str;
+            // find the first occurence of oldValue
+            int pos = retval.IndexOf(oldValue, StringComparison.InvariantCultureIgnoreCase);
+
+            while (pos > -1)
+            {
+                // remove oldValue from the string
+                retval = str.Remove(pos, oldValue.Length);
+
+                // insert newValue in it's place
+                retval = retval.Insert(pos, newValue);
+
+                // check if oldValue is found further down
+                prevPos = pos + newValue.Length;
+                pos = retval.IndexOf(oldValue, prevPos, StringComparison.InvariantCultureIgnoreCase);
+            }
+
+            return retval;
         }
 
         private string GetBuildFromBuildNumber(string buildNumber, int buildNumberPrefix)
