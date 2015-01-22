@@ -68,7 +68,14 @@ namespace TfsBuild.NuGetter.Activities
             }
             catch (ArgumentException)
             {
-                versionPattern = ExtractVersion(versionPatternOrSeedFilePath, packageId, QuerySolutionName, sourcesDirectory);
+                try
+                {
+                    versionPattern = ExtractVersion(versionPatternOrSeedFilePath, packageId, QuerySolutionName, sourcesDirectory);
+                }
+                catch (ArgumentException)
+                {
+                    versionPattern = ExtractVersion(versionPatternOrSeedFilePath, "Default", QuerySolutionName, sourcesDirectory);
+                }
             }
 
             // Write to the log
